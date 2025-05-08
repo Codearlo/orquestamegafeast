@@ -1,91 +1,105 @@
 /**
  * MEGAFEAST ORQUESTA INTERNACIONAL
- * Script de control de caché mejorado
+ * Control de caché agresivo
  * 
- * Este script implementa un control de caché más efectivo para
- * asegurar que los usuarios siempre obtengan las versiones más
- * actualizadas de los recursos cuando se realicen cambios.
+ * Este script fuerza la recarga de recursos en todos los dispositivos,
+ * incluso en móviles donde es difícil limpiar la caché manualmente.
+ * Funciona con implementaciones basadas en Git y hosting como Hostinger.
  */
 
-// Versión actual del sitio - cambiar esto cuando se actualicen archivos
-const SITE_VERSION = '1.0.2';
-const CACHE_NAME = 'megafeast-cache-v' + SITE_VERSION;
+// Versión del sitio - INCREMENTAR ESTE NÚMERO CADA VEZ QUE SE HAGA UN CAMBIO IMPORTANTE
+const SITE_VERSION = '1.1.0';
 
-// Lista de archivos críticos a precachear
-const CACHE_ASSETS = [
-    '/',
-    '/index.html',
-    '/css/styles.css',
-    '/css/components.css',
-    '/css/responsive.css',
-    '/css/animations.css',
-    '/css/menu-mobile.css',
-    '/css/styles-fix.css',
-    '/js/main.js',
-    '/js/form-handler.js',
-    '/js/gallery.js',
-    '/js/loader-inline.js',
-    '/js/preloader.js',
-    '/img/logo.png',
-    '/img/logoheader.png'
+// Archivos a excluir del control de caché (loader y preloader)
+const EXCLUDE_FILES = [
+    'loader-inline.js',
+    'preloader.js'
 ];
 
 /**
- * Inicialización del control de caché
+ * Función de inicialización principal
  */
 (function() {
-    // Verificamos la versión en localStorage
-    checkVersionAndReload();
-    
-    // Añadimos parámetro de versión a recursos críticos
-    addVersionToResources();
-    
-    // Registrar evento para cuando la página esté completamente cargada
-    window.addEventListener('load', function() {
-        console.log('Caché inicializado - Versión: ' + SITE_VERSION);
+    // Registrar cuando el DOM está listo
+    document.addEventListener('DOMContentLoaded', function() {
+        // Comprobar versión y actuar en consecuencia
+        checkVersionAndUpdate();
+        
+        // Aplicar versión a recursos existentes
+        addVersionToAllResources();
+        
+        console.log('Control de caché activado - Versión: ' + SITE_VERSION);
     });
+    
+    // También ejecutamos algunos controles inmediatamente sin esperar al DOMContentLoaded
+    // para manejar recursos que se cargan muy temprano
+    earlyResourceControl();
 })();
 
 /**
- * Comprueba la versión almacenada y recarga si es necesario
+ * Control inicial de recursos antes de DOMContentLoaded
  */
-function checkVersionAndReload() {
+function earlyResourceControl() {
+    // Agregar meta tags de control de caché de inmediato
+    addCacheControlMetaTags();
+    
+    // Intentar modificar recursos ya cargados
+    setTimeout(function() {
+        addVersionToEarlyResources();
+    }, 0);
+}
+
+/**
+ * Comprueba si la versión ha cambiado y actualiza si es necesario
+ */
+function checkVersionAndUpdate() {
     try {
-        const lastVersion = localStorage.getItem('megafeast-version');
+        // Obtener timestamp actual (para uso en URLs)
+        const timestamp = new Date().getTime();
         
-        // Si es primera visita o nueva versión
-        if (!lastVersion || lastVersion !== SITE_VERSION) {
-            console.log('Nueva versión detectada: ' + SITE_VERSION);
+        // Comparar con versión almacenada
+        const storedVersion = localStorage.getItem('megafeast-version');
+        const storedTimestamp = localStorage.getItem('megafeast-timestamp');
+        
+        // Si es una nueva versión o ha pasado más de 1 hora desde la última verificación
+        const forceCheck = !storedTimestamp || (timestamp - parseInt(storedTimestamp) > 3600000);
+        
+        if (!storedVersion || storedVersion !== SITE_VERSION || forceCheck) {
+            console.log('Actualizando recursos a versión: ' + SITE_VERSION);
             
-            // Limpiar cualquier dato de caché obsoleto
-            clearBrowserCache();
-            
-            // Almacenar nueva versión
+            // Actualizar versión y timestamp en almacenamiento
             localStorage.setItem('megafeast-version', SITE_VERSION);
+            localStorage.setItem('megafeast-timestamp', timestamp.toString());
             
-            // Si no es primera visita, recargar la página para obtener recursos frescos
-            if (lastVersion && performance.navigation.type !== 1) {
-                console.log('Recargando página para actualizar recursos...');
-                // La recarga se realiza después de un pequeño retraso
-                // para permitir que se establezca el localStorage
+            // Forzar recarga de recursos
+            reloadAllResources(timestamp);
+            
+            // Si la versión cambió y no es recarga de página, recargar completamente
+            if (storedVersion && storedVersion !== SITE_VERSION && performance.navigation.type !== 1) {
+                console.log('Detectada nueva versión, recargando página...');
+                
+                // Guardar un indicador para evitar bucles de recarga
+                sessionStorage.setItem('megafeast-reloading', 'true');
+                
+                // Recargar después de un breve retraso
                 setTimeout(function() {
                     window.location.reload(true);
                 }, 100);
-                return;
             }
-        } else {
-            console.log('Usando versión en caché: ' + SITE_VERSION);
+        } else if (sessionStorage.getItem('megafeast-reloading')) {
+            // Limpiar indicador de recarga
+            sessionStorage.removeItem('megafeast-reloading');
+            console.log('Página actualizada a versión: ' + SITE_VERSION);
         }
     } catch (e) {
-        console.warn('Error al verificar versión: ', e);
+        console.warn('Error en control de versiones:', e);
     }
 }
 
 /**
- * Intenta limpiar el caché del navegador
+ * Añade meta tags para control de caché
  */
-function clearBrowserCache() {
-    // Añadir meta tags para prevenir caché
+function addCacheControlMetaTags() {
     const metaTags = [
         { httpEquiv: 'Cache-Control', content: 'no-cache, no-store, must-revalidate' },
         { httpEquiv: 'Pragma', content: 'no-cache' },
@@ -98,84 +112,175 @@ function clearBrowserCache() {
         metaEl.content = meta.content;
         document.head.appendChild(metaEl);
     });
-    
-    // Intenta limpiar caché programáticamente
+}
+
+/**
+ * Recarga todos los recursos con un parámetro de versión
+ */
+function reloadAllResources(timestamp) {
+    // Intentar usar la API Cache moderna
     if ('caches' in window) {
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
-                    if (cacheName.startsWith('megafeast-cache')) {
+                    if (cacheName.startsWith('megafeast')) {
                         return caches.delete(cacheName);
                     }
                 })
             );
+        }).catch(err => {
+            console.warn('Error al limpiar caché:', err);
         });
     }
     
-    // Recargar recursos críticos con busting de caché
-    reloadCriticalResources();
+    // Archivos a recargar con mayor prioridad
+    reloadStylesheets(timestamp);
+    reloadScripts(timestamp);
 }
 
 /**
- * Recarga recursos críticos con parámetro para romper caché
+ * Recarga hojas de estilo CSS
  */
-function reloadCriticalResources() {
+function reloadStylesheets(timestamp) {
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && !shouldExcludeFile(href)) {
+            const newHref = addVersionParam(href, timestamp || SITE_VERSION);
+            
+            // Crear un nuevo elemento en lugar de modificar el existente
+            const newLink = document.createElement('link');
+            newLink.rel = 'stylesheet';
+            newLink.href = newHref;
+            
+            // Reemplazar el enlace antiguo cuando el nuevo esté listo
+            newLink.onload = function() {
+                if (link.parentNode) {
+                    link.parentNode.removeChild(link);
+                }
+            };
+            
+            // Insertar el nuevo enlace
+            if (link.parentNode) {
+                link.parentNode.insertBefore(newLink, link.nextSibling);
+            }
+        }
+    });
+}
+
+/**
+ * Recarga scripts JavaScript
+ */
+function reloadScripts(timestamp) {
+    document.querySelectorAll('script[src]').forEach(script => {
+        const src = script.getAttribute('src');
+        if (src && !shouldExcludeFile(src) && !src.includes('cdnjs.cloudflare') && !src.includes('googleapis')) {
+            const newSrc = addVersionParam(src, timestamp || SITE_VERSION);
+            
+            // Crear un nuevo script
+            const newScript = document.createElement('script');
+            newScript.src = newSrc;
+            if (script.async) newScript.async = true;
+            if (script.defer) newScript.defer = true;
+            
+            // Insertar el nuevo script y eliminar el viejo
+            if (script.parentNode) {
+                script.parentNode.insertBefore(newScript, script);
+                // Eliminamos el antiguo script con un pequeño retraso
+                setTimeout(() => {
+                    if (script.parentNode) {
+                        script.parentNode.removeChild(script);
+                    }
+                }, 100);
+            }
+        }
+    });
+}
+
+/**
+ * Aplica versión a todos los recursos en la página
+ */
+function addVersionToAllResources() {
     const timestamp = new Date().getTime();
     
-    // Recargar CSS
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-        if (!link.href.includes('cdnjs') && !link.href.includes('googleapis')) {
-            const originalHref = link.href;
-            const cacheBuster = originalHref.includes('?') ? '&v=' : '?v=';
-            link.href = originalHref + cacheBuster + timestamp;
+    // Imágenes
+    document.querySelectorAll('img').forEach(img => {
+        if (img.src && !img.src.includes('data:') && !img.hasAttribute('data-no-cache')) {
+            img.src = addVersionParam(img.src, timestamp);
         }
     });
     
-    // Recargar JS
-    document.querySelectorAll('script[src]').forEach(script => {
-        if (!script.src.includes('cdnjs') && !script.src.includes('googleapis')) {
-            const originalSrc = script.src;
-            const cacheBuster = originalSrc.includes('?') ? '&v=' : '?v=';
-            
-            // Crear un nuevo script en lugar de modificar el existente
-            const newScript = document.createElement('script');
-            newScript.src = originalSrc + cacheBuster + timestamp;
-            newScript.async = script.async;
-            newScript.defer = script.defer;
-            
-            script.parentNode.replaceChild(newScript, script);
+    // Fondos con background-image
+    document.querySelectorAll('[style*="background-image"]').forEach(el => {
+        const style = el.getAttribute('style');
+        if (style && style.includes('url(') && !style.includes('data:')) {
+            // Extraer la URL
+            const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+                const url = match[1];
+                const newUrl = addVersionParam(url, timestamp);
+                const newStyle = style.replace(url, newUrl);
+                el.setAttribute('style', newStyle);
+            }
+        }
+    });
+    
+    // Videos y audios
+    document.querySelectorAll('video source, audio source').forEach(source => {
+        if (source.src) {
+            source.src = addVersionParam(source.src, timestamp);
         }
     });
 }
 
 /**
- * Añade parámetro de versión a todos los recursos
+ * Aplica versión a recursos cargados temprano
  */
-function addVersionToResources() {
-    // Añadir versión a los recursos que se cargan después
-    document.addEventListener('DOMContentLoaded', function() {
-        // Imágenes
-        document.querySelectorAll('img').forEach(img => {
-            if (img.src && !img.src.includes('data:') && !img.getAttribute('data-no-cache')) {
-                const cacheBuster = img.src.includes('?') ? '&v=' : '?v=';
-                img.src = img.src + cacheBuster + SITE_VERSION;
-            }
-        });
-        
-        // Fondos con background-image en el estilo inline
-        document.querySelectorAll('[style*="background-image"]').forEach(el => {
-            const style = el.getAttribute('style');
-            if (style && style.includes('url(') && !style.includes('data:')) {
-                // Extraer la URL
-                const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
-                if (match && match[1]) {
-                    const url = match[1];
-                    const cacheBuster = url.includes('?') ? '&v=' : '?v=';
-                    const newUrl = url + cacheBuster + SITE_VERSION;
-                    const newStyle = style.replace(url, newUrl);
-                    el.setAttribute('style', newStyle);
-                }
-            }
-        });
+function addVersionToEarlyResources() {
+    const timestamp = new Date().getTime();
+    
+    // Hojas de estilo que ya están cargadas
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && !shouldExcludeFile(href)) {
+            link.href = addVersionParam(href, timestamp);
+        }
     });
+}
+
+/**
+ * Agrega parámetro de versión a una URL
+ */
+function addVersionParam(url, version) {
+    if (!url || url.includes('data:') || url.includes('blob:')) {
+        return url;
+    }
+    
+    // No modificar URLs externas
+    if (url.includes('//') && !url.includes(window.location.hostname)) {
+        return url;
+    }
+    
+    // No modificar archivos excluidos
+    if (shouldExcludeFile(url)) {
+        return url;
+    }
+    
+    // Eliminar parámetros de versión anteriores si existen
+    url = url.replace(/([?&])(v|version|_v|t|timestamp)=([^&]*)/g, (match, prefix, key, value) => {
+        return prefix === '?' ? '?' : '';
+    });
+    
+    // Eliminar ? final si quedó solo después de remover parámetros
+    url = url.replace(/\?$/, '');
+    
+    // Añadir nuevo parámetro de versión
+    const separator = url.includes('?') ? '&' : '?';
+    return url + separator + 'v=' + version;
+}
+
+/**
+ * Determina si un archivo debe ser excluido del control de caché
+ */
+function shouldExcludeFile(url) {
+    return EXCLUDE_FILES.some(file => url.includes(file));
 }
