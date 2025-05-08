@@ -1,0 +1,191 @@
+/* 
+ * MEGAFEAST ORQUESTA INTERNACIONAL
+ * Animaciones y efectos visuales
+ */
+
+/* Animaciones de entrada al hacer scroll */
+.pre-animate {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.animate {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Delay escalonado para elementos en grids */
+.events-grid .event-card:nth-child(2) {
+    transition-delay: 0.1s;
+}
+
+.events-grid .event-card:nth-child(3) {
+    transition-delay: 0.2s;
+}
+
+.musicians-grid .musician-card:nth-child(2) {
+    transition-delay: 0.1s;
+}
+
+.musicians-grid .musician-card:nth-child(3) {
+    transition-delay: 0.2s;
+}
+
+.musicians-grid .musician-card:nth-child(4) {
+    transition-delay: 0.3s;
+}
+
+.gallery-grid .gallery-item:nth-child(2) {
+    transition-delay: 0.1s;
+}
+
+.gallery-grid .gallery-item:nth-child(3) {
+    transition-delay: 0.2s;
+}
+
+.gallery-grid .gallery-item:nth-child(4) {
+    transition-delay: 0.1s;
+}
+
+.gallery-grid .gallery-item:nth-child(5) {
+    transition-delay: 0.2s;
+}
+
+.gallery-grid .gallery-item:nth-child(6) {
+    transition-delay: 0.3s;
+}
+
+/* Animación de gradiente para el header */
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+/* Animación de pulsación para el logo */
+@keyframes pulse-light {
+    0% {
+        filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
+    }
+    50% {
+        filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.8));
+    }
+    100% {
+        filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
+    }
+}
+
+/* Pulsación del botón de eventos en el header */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
+    }
+}
+
+/* Animación de carga para el botón del formulario */
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Animaciones para hover */
+.nav-logo::after,
+.nav-links a::before,
+.footer-logo::before {
+    transition: all 0.3s ease;
+}
+
+.nav-links a,
+.social-links a,
+.footer-nav a,
+.event-button,
+.submit-button,
+.load-more-button,
+.contact-detail a {
+    transition: all 0.3s ease;
+}
+
+/* Efectos de tarjetas */
+.event-card,
+.musician-card,
+.gallery-card,
+.about-image img {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease;
+}
+
+/* Efecto de hover para tarjetas */
+.event-card:hover,
+.musician-card:hover {
+    transform: translateY(-10px);
+}
+
+/* Animación para el menú móvil */
+.nav-links li {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+/* Transición para el overlay del menú */
+.nav-overlay {
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Efecto flip para galería */
+.gallery-card {
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+}
+
+.gallery-item:hover .gallery-card {
+    transform: rotateY(180deg);
+}
+
+.gallery-front, .gallery-back {
+    backface-visibility: hidden;
+}
+
+.gallery-back {
+    transform: rotateY(180deg);
+}
+
+/* Efecto de brillo en botones */
+.event-button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.event-button:hover::after {
+    left: 100%;
+}
+
+/* Animación para la barra de navegación al hacer scroll */
+.main-nav {
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Animación para la notificación del formulario */
+.form-notification {
+    transition: opacity 0.3s ease;
+}
+
+/* Animaciones específicas para móvil */
+@media (max-width: 768px) {
+    /* Escalonado de aparición del menú móvil */
+    .nav-links.active li:nth-child(1) { transition-delay: 0.1s; }
+    .nav-links.active li:nth-child(2) { transition-delay: 0.2s; }
+    .nav-links.active li:nth-child(3) { transition-delay: 0.3s; }
+    .nav-links.active li:nth-child(4) { transition-delay: 0.4s; }
+    .nav-links.active li:nth-child(5) { transition-delay: 0.5s; }
+    .nav-links.active li:nth-child(6) { transition-delay: 0.6s; }
+}

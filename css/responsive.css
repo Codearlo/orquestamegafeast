@@ -1,0 +1,270 @@
+/* 
+ * MEGAFEAST ORQUESTA INTERNACIONAL
+ * Estilos responsive
+ */
+
+/* Tablets grandes y dispositivos medianos */
+@media (max-width: 1024px) {
+    .container {
+        padding: 0 30px;
+    }
+    
+    .gallery-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .musicians-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .events-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .section-title {
+        font-size: 2.2rem;
+    }
+    
+    .nav-links li {
+        margin-left: 1.5rem;
+    }
+}
+
+/* Tablets y dispositivos medianos */
+@media (max-width: 992px) {
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .contact-container {
+        flex-direction: column;
+    }
+    
+    .about-content {
+        flex-direction: column;
+    }
+    
+    .about-image {
+        order: -1;
+        margin-bottom: 2rem;
+    }
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+    .logo {
+        font-size: 1.8rem;
+    }
+    
+    .tagline {
+        font-size: 1rem;
+        padding: 0 20px;
+    }
+    
+    /* Navegación móvil - Ahora en menu-mobile.css */
+    
+    /* Secciones en tablets */
+    section {
+        padding: 3rem 0;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .section-subtitle {
+        font-size: 1rem;
+        padding: 0 20px;
+    }
+    
+    /* Layout en tablets */
+    .about-content,
+    .contact-container {
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    /* Eventos y músicos en tablets */
+    .events-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .musicians-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* Galería en tablets */
+    .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .gallery-item {
+        height: 220px;
+    }
+    
+    .gallery-back {
+        padding: 1rem;
+    }
+    
+    .gallery-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.7rem;
+    }
+    
+    .gallery-desc {
+        font-size: 0.85rem;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Ajustes al footer */
+    .footer-logo-img {
+        height: 70px;
+    }
+    
+    .social-links li {
+        margin: 0 0.7rem;
+    }
+    
+    .header-logo {
+        height: 120px;
+    }
+    
+    .footer-nav ul {
+        gap: 1rem;
+    }
+}
+
+/* Móviles */
+@media (max-width: 480px) {
+    /* General */
+    .container {
+        padding: 0 15px;
+    }
+    
+    section {
+        padding: 3rem 0;
+    }
+    
+    .section-heading {
+        margin-bottom: 2.5rem;
+    }
+    
+    .logo {
+        font-size: 1.5rem;
+    }
+    
+    .tagline {
+        font-size: 0.9rem;
+    }
+    
+    .section-title {
+        font-size: 1.8rem;
+    }
+    
+    .section-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    /* Navegación - Detalles en menu-mobile.css */
+    
+    /* Eventos */
+    .events-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .event-card {
+        max-width: 100%;
+    }
+    
+    /* Músicos */
+    .musicians-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .musician-card {
+        max-width: 100%;
+    }
+    
+    /* Galería */
+    .gallery-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .gallery-item {
+        height: 200px;
+    }
+    
+    .gallery-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .gallery-desc {
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+        -webkit-line-clamp: 3;
+    }
+    
+    .gallery-back {
+        padding: 0.8rem;
+    }
+    
+    /* Formulario */
+    .form-control {
+        font-size: 16px; /* Evita zoom en iOS */
+        padding: 0.7rem;
+    }
+    
+    .submit-button {
+        width: 100%;
+        padding: 0.8rem;
+    }
+    
+    /* Footer */
+    .footer-logo-img {
+        height: 60px;
+    }
+    
+    .social-links li {
+        margin: 0 0.5rem;
+    }
+    
+    .footer-text {
+        font-size: 0.8rem;
+    }
+    
+    .header-logo {
+        height: 100px;
+    }
+    
+    .nav-logo-img {
+        height: 40px;
+    }
+}
+
+/* Orientación horizontal en móviles */
+@media (max-height: 500px) and (orientation: landscape) {
+    header {
+        height: auto;
+        padding: 120px 0 40px;
+    }
+    
+    .nav-container {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .nav-logo {
+        margin-bottom: 0;
+    }
+    
+    .gallery-item {
+        height: 180px;
+    }
+}
