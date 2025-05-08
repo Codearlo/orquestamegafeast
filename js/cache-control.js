@@ -1,304 +1,225 @@
 /**
  * MEGAFEAST ORQUESTA INTERNACIONAL
- * Control de caché con detección automática de cambios
+ * Control de caché conservador
  * 
- * Este script fuerza la recarga de recursos usando timestamp como versión,
- * sin depender de un número de versión manual.
+ * Este script actualiza recursos solo cuando es necesario,
+ * evitando recargas excesivas y problemas con el loader.
  */
 
-// Archivos a excluir del control de caché (loader y preloader)
+// Archivos a excluir completamente del control de caché
 const EXCLUDE_FILES = [
     'loader-inline.js',
     'preloader.js',
-    'logo.png' // Excluir el logo usado por el loader
+    'logo.png',
+    'logoheader.png'
 ];
+
+// Intervalo mínimo entre verificaciones (24 horas)
+const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 1 día en milisegundos
 
 /**
  * Función de inicialización principal
  */
 (function() {
-    // Obtener timestamp actual como identificador único
-    const currentTimestamp = new Date().getTime();
-    
-    // Registrar cuando el DOM está listo
-    document.addEventListener('DOMContentLoaded', function() {
-        // Comprobar si necesitamos forzar actualización
-        checkForUpdates(currentTimestamp);
-        
-        // Aplicar identificador a recursos existentes
-        addTimestampToAllResources(currentTimestamp);
-        
-        console.log('Control de caché activado - Timestamp: ' + currentTimestamp);
+    // Verificar si debemos realizar una comprobación hoy
+    // (pero solo cuando la página esté completamente cargada)
+    window.addEventListener('load', function() {
+        // Esperar un momento para no interferir con la carga inicial
+        setTimeout(function() {
+            checkForUpdates();
+        }, 1000);
     });
-    
-    // Ejecutamos algunos controles inmediatamente para recursos tempranos
-    earlyResourceControl(currentTimestamp);
 })();
 
 /**
- * Control inicial de recursos antes de DOMContentLoaded
+ * Comprueba si hay que actualizar recursos
  */
-function earlyResourceControl(timestamp) {
-    // Agregar meta tags de control de caché de inmediato
-    addCacheControlMetaTags();
-    
-    // Actualizar la frecuencia de verificación
-    updateCheckFrequency(timestamp);
-}
-
-/**
- * Actualiza la frecuencia de verificación de cambios
- */
-function updateCheckFrequency(timestamp) {
+function checkForUpdates() {
     try {
-        // Guardar timestamp de esta visita
-        localStorage.setItem('megafeast-last-visit', timestamp.toString());
+        const now = new Date().getTime();
+        const lastCheck = localStorage.getItem('megafeast-last-check');
         
-        // Calcular tiempo desde la última verificación
-        const lastCheck = localStorage.getItem('megafeast-check-frequency');
-        
-        if (!lastCheck) {
-            // Primera visita, establecer frecuencia inicial (cada hora)
-            localStorage.setItem('megafeast-check-frequency', '3600000'); // 1 hora en ms
-        } else {
-            // Ajustar frecuencia basada en la actividad del sitio
-            // Si se visita frecuentemente, verificar más seguido
-            const frequency = parseInt(lastCheck);
-            const newFrequency = Math.max(300000, Math.min(frequency, 7200000)); // Entre 5 min y 2 horas
-            localStorage.setItem('megafeast-check-frequency', newFrequency.toString());
+        // Solo verificar una vez al día como máximo
+        if (!lastCheck || (now - parseInt(lastCheck) > CHECK_INTERVAL)) {
+            console.log('Realizando verificación diaria de recursos...');
+            
+            // Guardar timestamp de esta verificación
+            localStorage.setItem('megafeast-last-check', now.toString());
+            
+            // Comparar con último despliegue conocido
+            checkDeploymentStatus(now);
         }
     } catch (e) {
-        console.warn('Error al actualizar frecuencia:', e);
+        console.warn('Error en verificación de actualizaciones:', e);
     }
 }
 
 /**
- * Comprueba si hay actualizaciones basadas en el tiempo
+ * Verifica cambios de despliegue usando un archivo de manifiesto
  */
-function checkForUpdates(timestamp) {
-    try {
-        // Obtener última verificación
-        const lastForceReload = localStorage.getItem('megafeast-last-reload');
-        const checkFrequency = parseInt(localStorage.getItem('megafeast-check-frequency') || '3600000');
-        
-        // Si nunca se ha forzado recarga o ha pasado suficiente tiempo
-        if (!lastForceReload || (timestamp - parseInt(lastForceReload) > checkFrequency)) {
-            console.log('Verificando actualizaciones de recursos...');
-            
-            // Guardar esta verificación
-            localStorage.setItem('megafeast-last-reload', timestamp.toString());
-            
-            // Forzar recarga de recursos
-            reloadAllResources(timestamp);
-            
-            // Forzar recarga completa una vez al día (86400000 ms)
-            const dayInMs = 86400000;
-            if (!lastForceReload || (timestamp - parseInt(lastForceReload) > dayInMs)) {
-                // Si ha pasado un día, forzar recarga completa
-                console.log('Recarga diaria, refrescando página...');
-                
-                // Evitar bucle de recarga
-                sessionStorage.setItem('megafeast-reloading', 'true');
-                
-                setTimeout(function() {
-                    window.location.reload(true);
-                }, 100);
+function checkDeploymentStatus(timestamp) {
+    // Crear una solicitud al manifiesto con busting de caché
+    fetch('manifest.json?nocache=' + timestamp)
+        .then(response => {
+            if (!response.ok) {
+                // Si no existe el manifiesto, crear uno la próxima vez
+                createManifestFile();
+                return null;
             }
-        } else if (sessionStorage.getItem('megafeast-reloading')) {
-            // Limpiar indicador de recarga
-            sessionStorage.removeItem('megafeast-reloading');
-            console.log('Página actualizada con timestamp: ' + timestamp);
-        }
-    } catch (e) {
-        console.warn('Error al verificar actualizaciones:', e);
-    }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                // Comprobar versión del manifiesto
+                const storedVersion = localStorage.getItem('megafeast-manifest-version');
+                
+                if (!storedVersion || storedVersion !== data.version) {
+                    console.log('Nueva versión detectada:', data.version);
+                    
+                    // Almacenar nueva versión
+                    localStorage.setItem('megafeast-manifest-version', data.version);
+                    
+                    // Sugerir al usuario que recargue la página
+                    showUpdateNotification();
+                }
+            }
+        })
+        .catch(error => {
+            console.warn('Error al verificar manifiesto:', error);
+            // En caso de error, intentar actualizar solo los recursos críticos
+            updateCriticalResources(timestamp);
+        });
 }
 
 /**
- * Añade meta tags para control de caché
+ * Crea un archivo de manifiesto si no existe
  */
-function addCacheControlMetaTags() {
-    const metaTags = [
-        { httpEquiv: 'Cache-Control', content: 'no-cache, no-store, must-revalidate' },
-        { httpEquiv: 'Pragma', content: 'no-cache' },
-        { httpEquiv: 'Expires', content: '0' }
-    ];
+function createManifestFile() {
+    console.log("No se encontró archivo de manifiesto. Usando método alternativo.");
+    // Como no podemos crear el archivo desde JavaScript, actualizamos solo recursos críticos
+    updateCriticalResources(Date.now());
+}
+
+/**
+ * Actualiza solo los recursos críticos con busting de caché
+ */
+function updateCriticalResources(timestamp) {
+    // Almacenar último timestamp usado
+    localStorage.setItem('megafeast-last-resource-update', timestamp.toString());
+
+    // Actualizar solo recursos críticos
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+        if (link.href && link.href.includes('components.css')) {
+            addVersionParam(link, 'href', timestamp);
+        }
+    });
     
-    metaTags.forEach(meta => {
-        let metaEl = document.createElement('meta');
-        metaEl.httpEquiv = meta.httpEquiv;
-        metaEl.content = meta.content;
-        document.head.appendChild(metaEl);
+    // Actualizar imágenes de secciones principales (excepto las excluidas)
+    document.querySelectorAll('img').forEach(img => {
+        if (img.src && 
+            !shouldExcludeFile(img.src) && 
+            !img.src.includes('data:') &&
+            (img.src.includes('gallery') || img.src.includes('events'))) {
+            
+            addVersionParam(img, 'src', timestamp);
+        }
     });
 }
 
 /**
- * Recarga todos los recursos con un timestamp
+ * Muestra una notificación no intrusiva sugiriendo actualizar
  */
-function reloadAllResources(timestamp) {
-    // Intentar limpiar caché del navegador
-    if ('caches' in window) {
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheName.startsWith('megafeast')) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        }).catch(err => {
-            console.warn('Error al limpiar caché:', err);
+function showUpdateNotification() {
+    // Solo mostrar si no estamos en la primera carga de la página
+    if (performance.navigation.type !== 0) {
+        return;
+    }
+    
+    // Crear notificación elegante
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #1A1A1A;
+        color: #fff;
+        border: 2px solid #D4AF37;
+        border-radius: 8px;
+        padding: 15px 20px;
+        font-family: 'Quicksand', sans-serif;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 300px;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.3s, transform 0.3s;
+    `;
+    
+    notification.innerHTML = `
+        <div style="margin-right: 15px;">
+            <div style="font-weight: bold; color: #D4AF37; margin-bottom: 5px;">
+                Nueva versión disponible
+            </div>
+            <div style="font-size: 14px;">
+                Hay contenido actualizado disponible.
+            </div>
+        </div>
+        <button id="update-now-btn" style="
+            background-color: #D4AF37;
+            color: #1A1A1A;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: bold;
+            white-space: nowrap;
+        ">Actualizar</button>
+    `;
+    
+    // Añadir notificación al body
+    document.body.appendChild(notification);
+    
+    // Animar entrada
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    }, 100);
+    
+    // Configurar botón de actualización
+    const updateBtn = document.getElementById('update-now-btn');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', function() {
+            window.location.reload(true);
         });
     }
     
-    // Recargar recursos por tipo
-    reloadStylesheets(timestamp);
-    reloadScripts(timestamp);
-    reloadImages(timestamp);
-}
-
-/**
- * Recarga hojas de estilo CSS
- */
-function reloadStylesheets(timestamp) {
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && !shouldExcludeFile(href)) {
-            const newHref = addTimestampParam(href, timestamp);
-            
-            // Crear nuevo elemento
-            const newLink = document.createElement('link');
-            newLink.rel = 'stylesheet';
-            newLink.href = newHref;
-            
-            // Reemplazar cuando esté listo
-            newLink.onload = function() {
-                if (link.parentNode) {
-                    link.parentNode.removeChild(link);
-                }
-            };
-            
-            if (link.parentNode) {
-                link.parentNode.insertBefore(newLink, link.nextSibling);
+    // Auto-ocultar después de 10 segundos
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
             }
-        }
-    });
+        }, 300);
+    }, 10000);
 }
 
 /**
- * Recarga scripts JavaScript
+ * Añade parámetro de versión a un atributo de un elemento
  */
-function reloadScripts(timestamp) {
-    document.querySelectorAll('script[src]').forEach(script => {
-        const src = script.getAttribute('src');
-        if (src && !shouldExcludeFile(src) && !src.includes('cdnjs.cloudflare') && !src.includes('googleapis')) {
-            const newSrc = addTimestampParam(src, timestamp);
-            
-            // Crear nuevo script
-            const newScript = document.createElement('script');
-            newScript.src = newSrc;
-            if (script.async) newScript.async = true;
-            if (script.defer) newScript.defer = true;
-            
-            // Reemplazar script antiguo
-            if (script.parentNode) {
-                script.parentNode.insertBefore(newScript, script);
-                setTimeout(() => {
-                    if (script.parentNode) {
-                        script.parentNode.removeChild(script);
-                    }
-                }, 100);
-            }
-        }
-    });
-}
-
-/**
- * Recarga imágenes con timestamp
- */
-function reloadImages(timestamp) {
-    // Imágenes con etiqueta img
-    document.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src');
-        if (src && !shouldExcludeFile(src) && !src.includes('data:')) {
-            const newSrc = addTimestampParam(src, timestamp);
-            img.setAttribute('src', newSrc);
-        }
-    });
+function addVersionParam(element, attribute, timestamp) {
+    if (!element || !element[attribute]) return;
     
-    // Imágenes de fondo en CSS
-    document.querySelectorAll('[style*="background-image"]').forEach(el => {
-        const style = el.getAttribute('style');
-        if (style && style.includes('url(') && !style.includes('data:')) {
-            // Extraer todas las URLs
-            const urlPattern = /url\(['"]?([^'"]+)['"]?\)/g;
-            let newStyle = style;
-            let match;
-            
-            while ((match = urlPattern.exec(style)) !== null) {
-                const url = match[1];
-                if (!shouldExcludeFile(url)) {
-                    const newUrl = addTimestampParam(url, timestamp);
-                    newStyle = newStyle.replace(url, newUrl);
-                }
-            }
-            
-            if (newStyle !== style) {
-                el.setAttribute('style', newStyle);
-            }
-        }
-    });
-}
-
-/**
- * Aplica timestamp a todos los recursos en la página
- */
-function addTimestampToAllResources(timestamp) {
-    // Imágenes
-    document.querySelectorAll('img').forEach(img => {
-        if (img.src && !img.src.includes('data:') && !img.hasAttribute('data-no-cache')) {
-            if (!shouldExcludeFile(img.src)) {
-                img.src = addTimestampParam(img.src, timestamp);
-            }
-        }
-    });
-    
-    // Fondos con background-image
-    document.querySelectorAll('[style*="background-image"]').forEach(el => {
-        const style = el.getAttribute('style');
-        if (style && style.includes('url(') && !style.includes('data:')) {
-            const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
-            if (match && match[1]) {
-                const url = match[1];
-                if (!shouldExcludeFile(url)) {
-                    const newUrl = addTimestampParam(url, timestamp);
-                    const newStyle = style.replace(url, newUrl);
-                    el.setAttribute('style', newStyle);
-                }
-            }
-        }
-    });
-}
-
-/**
- * Agrega parámetro de timestamp a una URL
- */
-function addTimestampParam(url, timestamp) {
-    if (!url || url.includes('data:') || url.includes('blob:')) {
-        return url;
-    }
-    
-    // No modificar URLs externas
-    if (url.includes('//') && !url.includes(window.location.hostname)) {
-        return url;
-    }
+    let url = element[attribute];
     
     // No modificar archivos excluidos
-    if (shouldExcludeFile(url)) {
-        return url;
-    }
+    if (shouldExcludeFile(url)) return;
     
-    // Eliminar parámetros de versión/timestamp anteriores
+    // Eliminar parámetros de versión anteriores
     url = url.replace(/([?&])(v|version|_v|t|timestamp|_t|ts)=([^&]*)/g, (match, prefix, key, value) => {
         return prefix === '?' ? '?' : '';
     });
@@ -308,14 +229,14 @@ function addTimestampParam(url, timestamp) {
     
     // Añadir nuevo timestamp
     const separator = url.includes('?') ? '&' : '?';
-    return url + separator + 't=' + timestamp;
+    element[attribute] = url + separator + 'v=' + timestamp;
 }
 
 /**
  * Determina si un archivo debe ser excluido del control de caché
  */
 function shouldExcludeFile(url) {
-    if (!url) return false;
+    if (!url) return true;
     
     // Verificar archivos específicos a excluir
     return EXCLUDE_FILES.some(file => url.includes(file));
