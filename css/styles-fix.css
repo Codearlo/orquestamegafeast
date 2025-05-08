@@ -144,3 +144,83 @@ header .event-button {
         transform: translateX(0);
     }
 }
+
+/* Responsive para tablets */
+@media (max-width: 768px) {
+    .header-logo {
+        height: 180px; /* Aumentado de 120px */
+    }
+    
+    .footer-logo-img {
+        height: 100px; /* Aumentado de 70px */
+    }
+}
+
+/* Responsive para móviles */
+@media (max-width: 480px) {
+    .header-logo {
+        height: 140px; /* Aumentado de 100px */
+    }
+    
+    .footer-logo-img {
+        height: 140px; /* Aumentado de 60px */
+    }
+}
+
+/* 
+ * MEGAFEAST ORQUESTA INTERNACIONAL
+ * Mejora de calidad de imagen en el header
+ */
+
+/* Mejora del header y la imagen de fondo */
+header {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Mejoras para calidad de imagen */
+    background-attachment: scroll; /* Mejor rendimiento en móviles */
+    image-rendering: -webkit-optimize-contrast; /* Mejora nitidez en WebKit */
+    image-rendering: crisp-edges; /* Mejora nitidez en navegadores modernos */
+    will-change: transform; /* Optimización de rendimiento */
+}
+
+/* Asegurarse de que la imagen de fondo sea de alta calidad */
+header.hero-background {
+    /* Estas propiedades anulan cualquier definición anterior */
+    background-position: center center !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+}
+
+/* Mejoras específicas para móviles */
+@media (max-width: 768px) {
+    header {
+        /* Ajustes específicos para dispositivos móviles */
+        background-attachment: scroll; /* Asegura mejor rendimiento en móviles */
+        background-position: center center;
+        height: 100vh; /* Altura completa */
+    }
+    
+    /* Overlay más oscuro para mejorar contraste y legibilidad */
+    .hero-overlay {
+        background-color: rgba(0, 0, 0, 0.5); /* Overlay más oscuro para móviles */
+    }
+}
+
+/* Optimización para dispositivos de alta resolución */
+@media 
+(-webkit-min-device-pixel-ratio: 2), 
+(min-resolution: 192dpi) {
+    /* Dispositivos retina y alta resolución */
+    header {
+        background-size: cover;
+    }
+}
