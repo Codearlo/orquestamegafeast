@@ -1,10 +1,9 @@
 /**
  * MEGAFEAST ORQUESTA INTERNACIONAL
- * Control de caché agresivo
+ * Control de caché agresivo con soporte para imágenes
  * 
- * Este script fuerza la recarga de recursos en todos los dispositivos,
- * incluso en móviles donde es difícil limpiar la caché manualmente.
- * Funciona con implementaciones basadas en Git y hosting como Hostinger.
+ * Este script fuerza la recarga de recursos incluyendo imágenes en todos los dispositivos,
+ * especialmente en móviles donde es difícil limpiar la caché manualmente.
  */
 
 // Versión del sitio - INCREMENTAR ESTE NÚMERO CADA VEZ QUE SE HAGA UN CAMBIO IMPORTANTE
@@ -13,7 +12,14 @@ const SITE_VERSION = '1.1.0';
 // Archivos a excluir del control de caché (loader y preloader)
 const EXCLUDE_FILES = [
     'loader-inline.js',
-    'preloader.js'
+    'preloader.js',
+    'logo.png' // Excluir el logo usado por el loader
+];
+
+// Carpetas a excluir del control de caché
+const EXCLUDE_FOLDERS = [
+    // Por ejemplo, si tienes una carpeta específica para el loader
+    // 'loader-assets/'
 ];
 
 /**
@@ -27,6 +33,9 @@ const EXCLUDE_FILES = [
         
         // Aplicar versión a recursos existentes
         addVersionToAllResources();
+        
+        // Monitorear cambios en el DOM para aplicar a recursos nuevos
+        setupMutationObserver();
         
         console.log('Control de caché activado - Versión: ' + SITE_VERSION);
     });
@@ -136,6 +145,7 @@ function reloadAllResources(timestamp) {
     // Archivos a recargar con mayor prioridad
     reloadStylesheets(timestamp);
     reloadScripts(timestamp);
+    reloadImages(timestamp);
 }
 
 /**
@@ -197,15 +207,61 @@ function reloadScripts(timestamp) {
 }
 
 /**
+ * Recarga imágenes con control de versión
+ */
+function reloadImages(timestamp) {
+    // Procesamos imágenes con src
+    document.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src');
+        if (src && !shouldExcludeFile(src) && !src.includes('data:')) {
+            // Solo recargar si no es una imagen de loader o excluida
+            const newSrc = addVersionParam(src, timestamp || SITE_VERSION);
+            
+            // Para imágenes, aplicamos directamente al mismo elemento
+            // ya que no tienen dependencias de carga como scripts o CSS
+            img.setAttribute('src', newSrc);
+        }
+    });
+    
+    // Procesamos fondos con background-image
+    document.querySelectorAll('[style*="background-image"]').forEach(el => {
+        const style = el.getAttribute('style');
+        if (style && style.includes('url(') && !style.includes('data:')) {
+            // Extraer todas las URLs del estilo
+            const urlPattern = /url\(['"]?([^'"]+)['"]?\)/g;
+            let newStyle = style;
+            let match;
+            
+            // Reemplazar todas las URLs con versiones actualizadas
+            while ((match = urlPattern.exec(style)) !== null) {
+                const url = match[1];
+                if (!shouldExcludeFile(url)) {
+                    const newUrl = addVersionParam(url, timestamp || SITE_VERSION);
+                    newStyle = newStyle.replace(url, newUrl);
+                }
+            }
+            
+            // Aplicar el nuevo estilo
+            if (newStyle !== style) {
+                el.setAttribute('style', newStyle);
+            }
+        }
+    });
+}
+
+/**
  * Aplica versión a todos los recursos en la página
  */
 function addVersionToAllResources() {
     const timestamp = new Date().getTime();
     
-    // Imágenes
+    // Imágenes con src
     document.querySelectorAll('img').forEach(img => {
         if (img.src && !img.src.includes('data:') && !img.hasAttribute('data-no-cache')) {
-            img.src = addVersionParam(img.src, timestamp);
+            // Verificar si debe ser excluida
+            if (!shouldExcludeFile(img.src)) {
+                img.src = addVersionParam(img.src, timestamp);
+            }
         }
     });
     
@@ -217,16 +273,18 @@ function addVersionToAllResources() {
             const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
             if (match && match[1]) {
                 const url = match[1];
-                const newUrl = addVersionParam(url, timestamp);
-                const newStyle = style.replace(url, newUrl);
-                el.setAttribute('style', newStyle);
+                if (!shouldExcludeFile(url)) {
+                    const newUrl = addVersionParam(url, timestamp);
+                    const newStyle = style.replace(url, newUrl);
+                    el.setAttribute('style', newStyle);
+                }
             }
         }
     });
     
     // Videos y audios
     document.querySelectorAll('video source, audio source').forEach(source => {
-        if (source.src) {
+        if (source.src && !shouldExcludeFile(source.src)) {
             source.src = addVersionParam(source.src, timestamp);
         }
     });
@@ -244,6 +302,51 @@ function addVersionToEarlyResources() {
         if (href && !shouldExcludeFile(href)) {
             link.href = addVersionParam(href, timestamp);
         }
+    });
+}
+
+/**
+ * Configura un observador de mutaciones para aplicar versión a nuevos recursos
+ */
+function setupMutationObserver() {
+    // Crear un observador que vigile cambios en el DOM
+    const observer = new MutationObserver(function(mutations) {
+        let needsUpdate = false;
+        
+        mutations.forEach(function(mutation) {
+            // Verificar si se agregaron nuevos nodos
+            if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach(function(node) {
+                    // Verificar si es un elemento con src o href
+                    if (node.nodeType === 1) { // ELEMENT_NODE
+                        if ((node.tagName === 'IMG' || node.tagName === 'SCRIPT' || 
+                             node.tagName === 'LINK' || node.tagName === 'VIDEO' || 
+                             node.tagName === 'AUDIO') && !shouldExcludeFile(node.src || node.href)) {
+                            needsUpdate = true;
+                        }
+                        
+                        // También verificar elementos con estilo inline
+                        if (node.hasAttribute('style') && 
+                            node.getAttribute('style').includes('background-image')) {
+                            needsUpdate = true;
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Si se detectaron recursos nuevos, aplicar versión
+        if (needsUpdate) {
+            addVersionToAllResources();
+        }
+    });
+    
+    // Configurar el observador para vigilar todo el documento
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src', 'href', 'style']
     });
 }
 
@@ -282,5 +385,27 @@ function addVersionParam(url, version) {
  * Determina si un archivo debe ser excluido del control de caché
  */
 function shouldExcludeFile(url) {
-    return EXCLUDE_FILES.some(file => url.includes(file));
+    if (!url) return false;
+    
+    // 1. Verificar archivos específicos
+    for (const excludeFile of EXCLUDE_FILES) {
+        if (url.includes(excludeFile)) {
+            return true;
+        }
+    }
+    
+    // 2. Verificar carpetas excluidas
+    for (const excludeFolder of EXCLUDE_FOLDERS) {
+        if (url.includes(excludeFolder)) {
+            return true;
+        }
+    }
+    
+    // 3. Verificar si tiene atributo de no-caché
+    const element = document.querySelector(`[src="${url}"], [href="${url}"]`);
+    if (element && element.hasAttribute('data-no-cache')) {
+        return true;
+    }
+    
+    return false;
 }
