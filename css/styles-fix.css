@@ -6,13 +6,13 @@
 /* Correcciones para centrado */
 .hero-overlay {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    padding: 0;
+    padding: 0 20px;
     position: absolute;
     top: 0;
     left: 0;
@@ -27,11 +27,15 @@ header {
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 header .logo-container {
     display: flex;
     justify-content: center;
+    align-items: center;
     width: 100%;
 }
 
@@ -39,6 +43,8 @@ header h1.logo,
 header h2.logo {
     width: 100%;
     text-align: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 header .tagline {
@@ -47,6 +53,10 @@ header .tagline {
     text-align: center;
     margin-left: auto;
     margin-right: auto;
+}
+
+header .event-button {
+    margin-top: 30px;
 }
 
 /* Corrección para navegación */
@@ -69,8 +79,12 @@ header .tagline {
     z-index: 1000;
 }
 
-/* Estilos para movil */
+/* Estilos para móvil */
 @media (max-width: 768px) {
+    .hero-overlay {
+        padding: 0 15px;
+    }
+    
     .main-nav {
         padding: 0;
     }
