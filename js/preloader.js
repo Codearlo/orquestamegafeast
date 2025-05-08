@@ -8,18 +8,19 @@
     // Guardar la imagen en el objeto window para acceso global
     window.preloadedLogo = {
         loaded: false,
-        dataUrl: null
+        dataUrl: null,
+        path: null
     };
     
     // Ruta a la imagen del logo
     var logoPath = 'img/logo.png';
     
-    // Añadir timestamp para evitar caché
-    var timestamp = new Date().getTime();
-    logoPath = logoPath + '?v=' + timestamp;
-    
     // Manejar la carga exitosa de la imagen
     logoPreloader.onload = function() {
+        // Guardar la ruta original como fallback
+        window.preloadedLogo.path = logoPreloader.src;
+        window.preloadedLogo.loaded = true;
+        
         // Convertir la imagen a Data URL para uso inmediato
         try {
             var canvas = document.createElement('canvas');
@@ -31,7 +32,6 @@
             
             // Guardar como Data URL
             window.preloadedLogo.dataUrl = canvas.toDataURL('image/png');
-            window.preloadedLogo.loaded = true;
             
             // Disparar evento personalizado para notificar que el logo está listo
             var event = new CustomEvent('logoPreloaded');
@@ -42,19 +42,26 @@
                 sessionStorage.setItem('megafeast_logo_cache', window.preloadedLogo.dataUrl);
             } catch(e) {
                 // Si falla sessionStorage, continuamos sin cachear
+                console.log('Error al guardar en sessionStorage:', e);
             }
         } catch(e) {
             // Si falla la conversión a dataURL, usamos la imagen normal
+            console.log('Error al convertir a dataURL:', e);
             window.preloadedLogo.loaded = true;
             window.preloadedLogo.path = logoPreloader.src;
+            
+            // Disparar evento aún así
+            var event = new CustomEvent('logoPreloaded');
+            document.dispatchEvent(event);
         }
     };
     
     // Manejar errores de carga
     logoPreloader.onerror = function() {
         // Marcar como no cargado, para que el loader use la ruta normal
-        window.preloadedLogo.loaded = false;
         console.warn('No se pudo precargar el logo');
+        window.preloadedLogo.loaded = false;
+        window.preloadedLogo.path = logoPath;
         
         // Disparar evento de error
         var event = new CustomEvent('logoPreloadError');
@@ -68,22 +75,19 @@
             // Si ya tenemos el logo en caché, úsalo inmediatamente
             window.preloadedLogo.dataUrl = cachedLogo;
             window.preloadedLogo.loaded = true;
+            window.preloadedLogo.path = logoPath;
             
             setTimeout(function() {
                 var event = new CustomEvent('logoPreloaded');
                 document.dispatchEvent(event);
             }, 10);
-            
-            // Aún así, actualizar el caché en segundo plano
-            setTimeout(function() {
-                logoPreloader.src = logoPath;
-            }, 1000);
         } else {
             // Si no hay caché, cargar normalmente
             logoPreloader.src = logoPath;
         }
     } catch(e) {
         // Si falla sessionStorage, cargar normalmente
+        console.log('Error al acceder a sessionStorage:', e);
         logoPreloader.src = logoPath;
     }
 })();

@@ -3,7 +3,7 @@
 
 (function() {
     // Versión del loader - cambiar esto cuando se actualice el script
-    var VERSION = '1.0.2';
+    var VERSION = '1.0.3';
     
     // Colores de la orquesta
     var bgColor = '#1A1A1A';     // Negro oscuro (fondo principal)
@@ -13,8 +13,6 @@
     var totalLoadTime = 800;
     
     // Logo en Base64 para incluirlo directamente (versión pequeña optimizada)
-    // IMPORTANTE: DEBES REEMPLAZAR ESTO CON TU LOGO REAL CONVERTIDO A BASE64
-    // Puedes usar herramientas online como https://www.base64-image.de/ para convertir tu logo
     var fallbackLogoBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAMAAAAOusbgAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAAzUExURUdwTBkZGRkZGRkZGRkZGRkZGRkZGUxMTExMTH9/f0xMTExMTBkZGRkZGUxMTH9/f////xphHQMAAAAQdFJOUwD3D/weiaZV3zNEtrbW5ycKd34OAAAAtElEQVRo3u3ZCQqAIBCF4XHfwvd/2sI2aJGZxvweuADfjKCIAgAAAAAAAAAAAADAHpTUUuu3h+hCmSmExuqnV3xQmW0A97CLZboBPMIxlvkG8AynWB42gBNcYnneAM5wjeV1A7jALZb3DeAKj1j6DeAGz1i+/F88Ylmj7uUey/L+aFdj+Xcv9s4eOkthGAoDN6PNWI3R//+1K0/TJVIYbtfzfXsnSJP0RK7klSsNYjXMaqt1XAEAAAAAAAAAAIBb4QnHQlom0axq5QAAAABJRU5ErkJggg==';
     
     // Añadir estilos inline para máxima velocidad
@@ -185,12 +183,15 @@
         if (window.preloadedLogo && window.preloadedLogo.loaded && window.preloadedLogo.dataUrl) {
             // 1. Usar logo precargado si está disponible
             logoSrc = window.preloadedLogo.dataUrl;
+            console.log('Usando logo precargado (dataUrl)');
         } else if (window.preloadedLogo && window.preloadedLogo.loaded && window.preloadedLogo.path) {
             // 2. Usar ruta de logo precargado si no hay dataUrl
             logoSrc = window.preloadedLogo.path;
+            console.log('Usando logo precargado (path):', window.preloadedLogo.path);
         } else {
             // 3. Usar logo en Base64 embebido como último recurso
             logoSrc = fallbackLogoBase64;
+            console.log('Usando logo de respaldo (fallback)');
         }
         
         // Generar el HTML con el logo que tengamos disponible
@@ -282,6 +283,7 @@
             localStorage.setItem('megafeast_loader_version', VERSION);
             return true;
         } catch (e) {
+            console.log('Error al manejar la versión en caché:', e);
             return true;
         }
     }
