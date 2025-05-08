@@ -57,6 +57,12 @@ header .tagline {
 
 header .event-button {
     margin-top: 30px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    align-self: center;
+    min-width: 200px;
 }
 
 /* Corrección para navegación */
@@ -83,6 +89,10 @@ header .event-button {
 @media (max-width: 768px) {
     .hero-overlay {
         padding: 0 15px;
+    }
+    
+    header .event-button {
+        min-width: 180px;
     }
     
     .main-nav {
