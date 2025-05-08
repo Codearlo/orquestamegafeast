@@ -111,16 +111,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const galleryItems = document.querySelectorAll('.gallery-item');
     const modal = document.getElementById('galleryModal');
     const modalImg = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalDate = document.getElementById('modalDate');
     const closeModal = document.querySelector('.close-modal');
     
     // Abrir modal al hacer clic en un elemento de la galería
     galleryItems.forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
+            // Obtener la imagen de fondo
             const imgUrl = this.querySelector('.gallery-front').style.backgroundImage.slice(5, -2);
+            
+            // Obtener la información de la imagen desde el elemento .gallery-back
+            const title = this.querySelector('.gallery-title') ? 
+                          this.querySelector('.gallery-title').textContent : '';
+            const desc = this.querySelector('.gallery-desc') ? 
+                         this.querySelector('.gallery-desc').textContent : '';
+            const date = this.querySelector('.gallery-date') ? 
+                         this.querySelector('.gallery-date').textContent : '';
+            
             if (modal) {
+                // Actualizar la modal con la imagen y su información
                 modal.classList.add('show');
                 modalImg.src = imgUrl;
+                
+                // Actualizar textos si existen los elementos
+                if (modalTitle) modalTitle.textContent = title;
+                if (modalDesc) modalDesc.textContent = desc;
+                if (modalDate) modalDate.textContent = date;
+                
                 document.body.style.overflow = 'hidden'; // Evitar scroll
             }
         });
