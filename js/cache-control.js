@@ -1,13 +1,10 @@
 /**
  * MEGAFEAST ORQUESTA INTERNACIONAL
- * Control de caché agresivo con soporte para imágenes
+ * Control de caché con detección automática de cambios
  * 
- * Este script fuerza la recarga de recursos incluyendo imágenes en todos los dispositivos,
- * especialmente en móviles donde es difícil limpiar la caché manualmente.
+ * Este script fuerza la recarga de recursos usando timestamp como versión,
+ * sin depender de un número de versión manual.
  */
-
-// Versión del sitio - INCREMENTAR ESTE NÚMERO CADA VEZ QUE SE HAGA UN CAMBIO IMPORTANTE
-const SITE_VERSION = '1.1.0';
 
 // Archivos a excluir del control de caché (loader y preloader)
 const EXCLUDE_FILES = [
@@ -16,81 +13,93 @@ const EXCLUDE_FILES = [
     'logo.png' // Excluir el logo usado por el loader
 ];
 
-// Carpetas a excluir del control de caché
-const EXCLUDE_FOLDERS = [
-    // Por ejemplo, si tienes una carpeta específica para el loader
-    // 'loader-assets/'
-];
-
 /**
  * Función de inicialización principal
  */
 (function() {
+    // Obtener timestamp actual como identificador único
+    const currentTimestamp = new Date().getTime();
+    
     // Registrar cuando el DOM está listo
     document.addEventListener('DOMContentLoaded', function() {
-        // Comprobar versión y actuar en consecuencia
-        checkVersionAndUpdate();
+        // Comprobar si necesitamos forzar actualización
+        checkForUpdates(currentTimestamp);
         
-        // Aplicar versión a recursos existentes
-        addVersionToAllResources();
+        // Aplicar identificador a recursos existentes
+        addTimestampToAllResources(currentTimestamp);
         
-        // Monitorear cambios en el DOM para aplicar a recursos nuevos
-        setupMutationObserver();
-        
-        console.log('Control de caché activado - Versión: ' + SITE_VERSION);
+        console.log('Control de caché activado - Timestamp: ' + currentTimestamp);
     });
     
-    // También ejecutamos algunos controles inmediatamente sin esperar al DOMContentLoaded
-    // para manejar recursos que se cargan muy temprano
-    earlyResourceControl();
+    // Ejecutamos algunos controles inmediatamente para recursos tempranos
+    earlyResourceControl(currentTimestamp);
 })();
 
 /**
  * Control inicial de recursos antes de DOMContentLoaded
  */
-function earlyResourceControl() {
+function earlyResourceControl(timestamp) {
     // Agregar meta tags de control de caché de inmediato
     addCacheControlMetaTags();
     
-    // Intentar modificar recursos ya cargados
-    setTimeout(function() {
-        addVersionToEarlyResources();
-    }, 0);
+    // Actualizar la frecuencia de verificación
+    updateCheckFrequency(timestamp);
 }
 
 /**
- * Comprueba si la versión ha cambiado y actualiza si es necesario
+ * Actualiza la frecuencia de verificación de cambios
  */
-function checkVersionAndUpdate() {
+function updateCheckFrequency(timestamp) {
     try {
-        // Obtener timestamp actual (para uso en URLs)
-        const timestamp = new Date().getTime();
+        // Guardar timestamp de esta visita
+        localStorage.setItem('megafeast-last-visit', timestamp.toString());
         
-        // Comparar con versión almacenada
-        const storedVersion = localStorage.getItem('megafeast-version');
-        const storedTimestamp = localStorage.getItem('megafeast-timestamp');
+        // Calcular tiempo desde la última verificación
+        const lastCheck = localStorage.getItem('megafeast-check-frequency');
         
-        // Si es una nueva versión o ha pasado más de 1 hora desde la última verificación
-        const forceCheck = !storedTimestamp || (timestamp - parseInt(storedTimestamp) > 3600000);
+        if (!lastCheck) {
+            // Primera visita, establecer frecuencia inicial (cada hora)
+            localStorage.setItem('megafeast-check-frequency', '3600000'); // 1 hora en ms
+        } else {
+            // Ajustar frecuencia basada en la actividad del sitio
+            // Si se visita frecuentemente, verificar más seguido
+            const frequency = parseInt(lastCheck);
+            const newFrequency = Math.max(300000, Math.min(frequency, 7200000)); // Entre 5 min y 2 horas
+            localStorage.setItem('megafeast-check-frequency', newFrequency.toString());
+        }
+    } catch (e) {
+        console.warn('Error al actualizar frecuencia:', e);
+    }
+}
+
+/**
+ * Comprueba si hay actualizaciones basadas en el tiempo
+ */
+function checkForUpdates(timestamp) {
+    try {
+        // Obtener última verificación
+        const lastForceReload = localStorage.getItem('megafeast-last-reload');
+        const checkFrequency = parseInt(localStorage.getItem('megafeast-check-frequency') || '3600000');
         
-        if (!storedVersion || storedVersion !== SITE_VERSION || forceCheck) {
-            console.log('Actualizando recursos a versión: ' + SITE_VERSION);
+        // Si nunca se ha forzado recarga o ha pasado suficiente tiempo
+        if (!lastForceReload || (timestamp - parseInt(lastForceReload) > checkFrequency)) {
+            console.log('Verificando actualizaciones de recursos...');
             
-            // Actualizar versión y timestamp en almacenamiento
-            localStorage.setItem('megafeast-version', SITE_VERSION);
-            localStorage.setItem('megafeast-timestamp', timestamp.toString());
+            // Guardar esta verificación
+            localStorage.setItem('megafeast-last-reload', timestamp.toString());
             
             // Forzar recarga de recursos
             reloadAllResources(timestamp);
             
-            // Si la versión cambió y no es recarga de página, recargar completamente
-            if (storedVersion && storedVersion !== SITE_VERSION && performance.navigation.type !== 1) {
-                console.log('Detectada nueva versión, recargando página...');
+            // Forzar recarga completa una vez al día (86400000 ms)
+            const dayInMs = 86400000;
+            if (!lastForceReload || (timestamp - parseInt(lastForceReload) > dayInMs)) {
+                // Si ha pasado un día, forzar recarga completa
+                console.log('Recarga diaria, refrescando página...');
                 
-                // Guardar un indicador para evitar bucles de recarga
+                // Evitar bucle de recarga
                 sessionStorage.setItem('megafeast-reloading', 'true');
                 
-                // Recargar después de un breve retraso
                 setTimeout(function() {
                     window.location.reload(true);
                 }, 100);
@@ -98,10 +107,10 @@ function checkVersionAndUpdate() {
         } else if (sessionStorage.getItem('megafeast-reloading')) {
             // Limpiar indicador de recarga
             sessionStorage.removeItem('megafeast-reloading');
-            console.log('Página actualizada a versión: ' + SITE_VERSION);
+            console.log('Página actualizada con timestamp: ' + timestamp);
         }
     } catch (e) {
-        console.warn('Error en control de versiones:', e);
+        console.warn('Error al verificar actualizaciones:', e);
     }
 }
 
@@ -124,10 +133,10 @@ function addCacheControlMetaTags() {
 }
 
 /**
- * Recarga todos los recursos con un parámetro de versión
+ * Recarga todos los recursos con un timestamp
  */
 function reloadAllResources(timestamp) {
-    // Intentar usar la API Cache moderna
+    // Intentar limpiar caché del navegador
     if ('caches' in window) {
         caches.keys().then(cacheNames => {
             return Promise.all(
@@ -142,7 +151,7 @@ function reloadAllResources(timestamp) {
         });
     }
     
-    // Archivos a recargar con mayor prioridad
+    // Recargar recursos por tipo
     reloadStylesheets(timestamp);
     reloadScripts(timestamp);
     reloadImages(timestamp);
@@ -155,21 +164,20 @@ function reloadStylesheets(timestamp) {
     document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
         const href = link.getAttribute('href');
         if (href && !shouldExcludeFile(href)) {
-            const newHref = addVersionParam(href, timestamp || SITE_VERSION);
+            const newHref = addTimestampParam(href, timestamp);
             
-            // Crear un nuevo elemento en lugar de modificar el existente
+            // Crear nuevo elemento
             const newLink = document.createElement('link');
             newLink.rel = 'stylesheet';
             newLink.href = newHref;
             
-            // Reemplazar el enlace antiguo cuando el nuevo esté listo
+            // Reemplazar cuando esté listo
             newLink.onload = function() {
                 if (link.parentNode) {
                     link.parentNode.removeChild(link);
                 }
             };
             
-            // Insertar el nuevo enlace
             if (link.parentNode) {
                 link.parentNode.insertBefore(newLink, link.nextSibling);
             }
@@ -184,18 +192,17 @@ function reloadScripts(timestamp) {
     document.querySelectorAll('script[src]').forEach(script => {
         const src = script.getAttribute('src');
         if (src && !shouldExcludeFile(src) && !src.includes('cdnjs.cloudflare') && !src.includes('googleapis')) {
-            const newSrc = addVersionParam(src, timestamp || SITE_VERSION);
+            const newSrc = addTimestampParam(src, timestamp);
             
-            // Crear un nuevo script
+            // Crear nuevo script
             const newScript = document.createElement('script');
             newScript.src = newSrc;
             if (script.async) newScript.async = true;
             if (script.defer) newScript.defer = true;
             
-            // Insertar el nuevo script y eliminar el viejo
+            // Reemplazar script antiguo
             if (script.parentNode) {
                 script.parentNode.insertBefore(newScript, script);
-                // Eliminamos el antiguo script con un pequeño retraso
                 setTimeout(() => {
                     if (script.parentNode) {
                         script.parentNode.removeChild(script);
@@ -207,41 +214,35 @@ function reloadScripts(timestamp) {
 }
 
 /**
- * Recarga imágenes con control de versión
+ * Recarga imágenes con timestamp
  */
 function reloadImages(timestamp) {
-    // Procesamos imágenes con src
+    // Imágenes con etiqueta img
     document.querySelectorAll('img').forEach(img => {
         const src = img.getAttribute('src');
         if (src && !shouldExcludeFile(src) && !src.includes('data:')) {
-            // Solo recargar si no es una imagen de loader o excluida
-            const newSrc = addVersionParam(src, timestamp || SITE_VERSION);
-            
-            // Para imágenes, aplicamos directamente al mismo elemento
-            // ya que no tienen dependencias de carga como scripts o CSS
+            const newSrc = addTimestampParam(src, timestamp);
             img.setAttribute('src', newSrc);
         }
     });
     
-    // Procesamos fondos con background-image
+    // Imágenes de fondo en CSS
     document.querySelectorAll('[style*="background-image"]').forEach(el => {
         const style = el.getAttribute('style');
         if (style && style.includes('url(') && !style.includes('data:')) {
-            // Extraer todas las URLs del estilo
+            // Extraer todas las URLs
             const urlPattern = /url\(['"]?([^'"]+)['"]?\)/g;
             let newStyle = style;
             let match;
             
-            // Reemplazar todas las URLs con versiones actualizadas
             while ((match = urlPattern.exec(style)) !== null) {
                 const url = match[1];
                 if (!shouldExcludeFile(url)) {
-                    const newUrl = addVersionParam(url, timestamp || SITE_VERSION);
+                    const newUrl = addTimestampParam(url, timestamp);
                     newStyle = newStyle.replace(url, newUrl);
                 }
             }
             
-            // Aplicar el nuevo estilo
             if (newStyle !== style) {
                 el.setAttribute('style', newStyle);
             }
@@ -250,17 +251,14 @@ function reloadImages(timestamp) {
 }
 
 /**
- * Aplica versión a todos los recursos en la página
+ * Aplica timestamp a todos los recursos en la página
  */
-function addVersionToAllResources() {
-    const timestamp = new Date().getTime();
-    
-    // Imágenes con src
+function addTimestampToAllResources(timestamp) {
+    // Imágenes
     document.querySelectorAll('img').forEach(img => {
         if (img.src && !img.src.includes('data:') && !img.hasAttribute('data-no-cache')) {
-            // Verificar si debe ser excluida
             if (!shouldExcludeFile(img.src)) {
-                img.src = addVersionParam(img.src, timestamp);
+                img.src = addTimestampParam(img.src, timestamp);
             }
         }
     });
@@ -269,91 +267,23 @@ function addVersionToAllResources() {
     document.querySelectorAll('[style*="background-image"]').forEach(el => {
         const style = el.getAttribute('style');
         if (style && style.includes('url(') && !style.includes('data:')) {
-            // Extraer la URL
             const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
             if (match && match[1]) {
                 const url = match[1];
                 if (!shouldExcludeFile(url)) {
-                    const newUrl = addVersionParam(url, timestamp);
+                    const newUrl = addTimestampParam(url, timestamp);
                     const newStyle = style.replace(url, newUrl);
                     el.setAttribute('style', newStyle);
                 }
             }
         }
     });
-    
-    // Videos y audios
-    document.querySelectorAll('video source, audio source').forEach(source => {
-        if (source.src && !shouldExcludeFile(source.src)) {
-            source.src = addVersionParam(source.src, timestamp);
-        }
-    });
 }
 
 /**
- * Aplica versión a recursos cargados temprano
+ * Agrega parámetro de timestamp a una URL
  */
-function addVersionToEarlyResources() {
-    const timestamp = new Date().getTime();
-    
-    // Hojas de estilo que ya están cargadas
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && !shouldExcludeFile(href)) {
-            link.href = addVersionParam(href, timestamp);
-        }
-    });
-}
-
-/**
- * Configura un observador de mutaciones para aplicar versión a nuevos recursos
- */
-function setupMutationObserver() {
-    // Crear un observador que vigile cambios en el DOM
-    const observer = new MutationObserver(function(mutations) {
-        let needsUpdate = false;
-        
-        mutations.forEach(function(mutation) {
-            // Verificar si se agregaron nuevos nodos
-            if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-                mutation.addedNodes.forEach(function(node) {
-                    // Verificar si es un elemento con src o href
-                    if (node.nodeType === 1) { // ELEMENT_NODE
-                        if ((node.tagName === 'IMG' || node.tagName === 'SCRIPT' || 
-                             node.tagName === 'LINK' || node.tagName === 'VIDEO' || 
-                             node.tagName === 'AUDIO') && !shouldExcludeFile(node.src || node.href)) {
-                            needsUpdate = true;
-                        }
-                        
-                        // También verificar elementos con estilo inline
-                        if (node.hasAttribute('style') && 
-                            node.getAttribute('style').includes('background-image')) {
-                            needsUpdate = true;
-                        }
-                    }
-                });
-            }
-        });
-        
-        // Si se detectaron recursos nuevos, aplicar versión
-        if (needsUpdate) {
-            addVersionToAllResources();
-        }
-    });
-    
-    // Configurar el observador para vigilar todo el documento
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['src', 'href', 'style']
-    });
-}
-
-/**
- * Agrega parámetro de versión a una URL
- */
-function addVersionParam(url, version) {
+function addTimestampParam(url, timestamp) {
     if (!url || url.includes('data:') || url.includes('blob:')) {
         return url;
     }
@@ -368,17 +298,17 @@ function addVersionParam(url, version) {
         return url;
     }
     
-    // Eliminar parámetros de versión anteriores si existen
-    url = url.replace(/([?&])(v|version|_v|t|timestamp)=([^&]*)/g, (match, prefix, key, value) => {
+    // Eliminar parámetros de versión/timestamp anteriores
+    url = url.replace(/([?&])(v|version|_v|t|timestamp|_t|ts)=([^&]*)/g, (match, prefix, key, value) => {
         return prefix === '?' ? '?' : '';
     });
     
-    // Eliminar ? final si quedó solo después de remover parámetros
+    // Eliminar ? final si quedó solo
     url = url.replace(/\?$/, '');
     
-    // Añadir nuevo parámetro de versión
+    // Añadir nuevo timestamp
     const separator = url.includes('?') ? '&' : '?';
-    return url + separator + 'v=' + version;
+    return url + separator + 't=' + timestamp;
 }
 
 /**
@@ -387,25 +317,6 @@ function addVersionParam(url, version) {
 function shouldExcludeFile(url) {
     if (!url) return false;
     
-    // 1. Verificar archivos específicos
-    for (const excludeFile of EXCLUDE_FILES) {
-        if (url.includes(excludeFile)) {
-            return true;
-        }
-    }
-    
-    // 2. Verificar carpetas excluidas
-    for (const excludeFolder of EXCLUDE_FOLDERS) {
-        if (url.includes(excludeFolder)) {
-            return true;
-        }
-    }
-    
-    // 3. Verificar si tiene atributo de no-caché
-    const element = document.querySelector(`[src="${url}"], [href="${url}"]`);
-    if (element && element.hasAttribute('data-no-cache')) {
-        return true;
-    }
-    
-    return false;
+    // Verificar archivos específicos a excluir
+    return EXCLUDE_FILES.some(file => url.includes(file));
 }
