@@ -142,6 +142,13 @@
     opacity: 0.95;
 }
 
+/* Contenedor de media (imagen o video) */
+.about-media {
+    flex: 1.25; /* Un poco más de espacio para el media que para el texto */
+    text-align: center;
+}
+
+/* Estilos para imagen en about (si se usa en lugar de video) */
 .about-image {
     flex: 1.25; /* Un poco más de espacio para la imagen que para el texto */
     text-align: center;
@@ -163,6 +170,36 @@
 .about-image img:hover {
     transform: scale(1.02);
     box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+/* Estilos para video en about */
+.about-video {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-normal);
+    border: 2px solid var(--primary-color);
+    aspect-ratio: 16 / 9; /* Proporción 16:9 (formato apaisado) */
+    object-fit: cover; /* Asegura que el video cubra el espacio sin distorsionarse */
+    object-position: center; /* Centra el video */
+    transition: transform 0.5s ease, box-shadow 0.5s ease;
+    background-color: #000; /* Fondo negro para el video */
+}
+
+.about-video:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+/* Controles del video personalizados */
+.about-video::-webkit-media-controls-panel {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.about-video::-webkit-media-controls-play-button {
+    background-color: var(--primary-color);
+    border-radius: 50%;
 }
 
 /* Correcciones de color para mejorar legibilidad */
@@ -645,6 +682,21 @@ header .event-button {
         right: 15px;
         font-size: 30px;
     }
+    
+    /* Responsive para video y media en about */
+    .about-content {
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    .about-media {
+        order: -1;
+        margin-bottom: 2rem;
+    }
+    
+    .about-video {
+        max-height: 250px;
+    }
 }
 
 /* Ajustes específicos para móviles pequeños */
@@ -684,6 +736,11 @@ header .event-button {
     
     .modal-date {
         font-size: 0.75rem;
+    }
+    
+    /* Video más pequeño en móviles pequeños */
+    .about-video {
+        max-height: 200px;
     }
 }
 
