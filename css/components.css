@@ -172,34 +172,50 @@
     box-shadow: 0 8px 25px rgba(0,0,0,0.4);
 }
 
-/* Estilos para video en about */
-.about-video {
+/* Estilos para Instagram embed en about */
+.instagram-embed-container {
+    max-width: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow-normal);
+    border: 2px solid var(--primary-color);
+    background-color: #fff;
+    transition: transform 0.5s ease, box-shadow 0.5s ease;
+}
+
+.instagram-embed-container:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+.instagram-media {
+    border-radius: var(--border-radius) !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+}
+
+/* Fallback para cuando no carga Instagram */
+.instagram-fallback {
     max-width: 100%;
     width: 100%;
     height: auto;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow-normal);
     border: 2px solid var(--primary-color);
-    aspect-ratio: 16 / 9; /* Proporción 16:9 (formato apaisado) */
-    object-fit: cover; /* Asegura que el video cubra el espacio sin distorsionarse */
-    object-position: center; /* Centra el video */
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    object-position: center;
     transition: transform 0.5s ease, box-shadow 0.5s ease;
-    background-color: #000; /* Fondo negro para el video */
 }
 
-.about-video:hover {
+.instagram-fallback:hover {
     transform: scale(1.02);
     box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-}
-
-/* Controles del video personalizados */
-.about-video::-webkit-media-controls-panel {
-    background-color: rgba(0, 0, 0, 0.8);
-}
-
-.about-video::-webkit-media-controls-play-button {
-    background-color: var(--primary-color);
-    border-radius: 50%;
 }
 
 /* Correcciones de color para mejorar legibilidad */
@@ -683,7 +699,7 @@ header .event-button {
         font-size: 30px;
     }
     
-    /* Responsive para video y media en about */
+    /* Responsive para Instagram embed en about */
     .about-content {
         flex-direction: column;
         gap: 2rem;
@@ -694,8 +710,15 @@ header .event-button {
         margin-bottom: 2rem;
     }
     
-    .about-video {
-        max-height: 250px;
+    .instagram-embed-container {
+        max-height: 400px;
+        overflow: hidden;
+    }
+    
+    .instagram-media {
+        max-width: 100% !important;
+        min-width: 100% !important;
+        width: 100% !important;
     }
 }
 
@@ -738,9 +761,9 @@ header .event-button {
         font-size: 0.75rem;
     }
     
-    /* Video más pequeño en móviles pequeños */
-    .about-video {
-        max-height: 200px;
+    /* Instagram embed más pequeño en móviles pequeños */
+    .instagram-embed-container {
+        max-height: 350px;
     }
 }
 
